@@ -9,12 +9,21 @@
 | **Pepr** | A Kubernetes controller framework that lets you write cluster automation and policy logic in TypeScript instead of complex YAML or shell scripts — used by UDS for enforcing security posture. |
 | **Lula** | Validates that NIST 800-53 security controls are actually implemented and met in a running environment. |
 
-## What UDS Core Includes
-- **Istio** — service mesh for zero-trust networking between services
-- **Pepr** — policy enforcement engine
-- **Prometheus + Grafana** — monitoring stack
-- **Loki** — log aggregation
-- **Neuvector** — container security
+## What UDS Core Slim Includes
+
+| Namespace | Component | Role |
+|-----------|-----------|------|
+| `istio-system` | Istio (CNI, istiod, ztunnel) | Zero-trust service mesh — controls all traffic between services |
+| `pepr-system` | Pepr controller + watcher | Policy enforcement — intercepts and validates cluster operations in real time |
+| `keycloak` | Keycloak + waypoint | Identity provider — SSO and authentication for all UDS services |
+| `authservice` | authservice | Handles authentication for Istio-protected services |
+| `zarf` | Registry + agent-hook | Builtin OCI registry and mutating webhook for air-gapped image management |
+| `istio-admin-gateway` | Admin ingress gateway | Ingress for admin/platform traffic |
+| `istio-tenant-gateway` | Tenant ingress gateway | Ingress for application/tenant traffic |
+| `uds-dev-stack` | MinIO | Object storage for the dev stack |
+| `kube-system` | MetalLB, CoreDNS, nginx | Load balancing, DNS, and base cluster networking |
+
+> **Note:** The full `k3d-core-demo` bundle additionally includes Prometheus, Grafana, Loki, and Neuvector but requires 16GB+ RAM. The slim bundle above runs on 8GB.
 
 ## Key Concepts
 - **UDS Package** — a Zarf package + security declarations (network policies, SSO config)
