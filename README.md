@@ -56,7 +56,8 @@ uds version
 
 ### Create a Local Cluster
 ```bash
-k3d cluster create uds-dev
+k3d cluster delete uds-dev 2>/dev/null || true
+k3d cluster create uds-dev --k3s-arg "--disable=traefik@server:*"
 kubectl config use-context k3d-uds-dev
 kubectl config current-context
 ```
@@ -66,12 +67,14 @@ kubectl config current-context
 kubectl get nodes
 ```
 
-### Deploy the UDS Core Demo Bundle
+### Deploy the UDS Core Slim Bundle
 ```bash
-uds deploy k3d-core-demo:latest
+uds deploy k3d-core-slim-dev:latest
 ```
 
-Confirm `y` when prompted. This deploys Istio, Pepr, monitoring, and the full UDS Core stack into your local cluster. Takes 10-20 minutes and requires 8GB+ RAM.
+Confirm `y` when prompted. This deploys a lightweight UDS Core stack (Istio, Pepr) optimized for local development on machines with 8GB RAM. The full `k3d-core-demo` bundle requires 16GB+.
+
+Takes 5-10 minutes.
 
 ### Watch the Rollout
 ```bash
