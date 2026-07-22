@@ -4,10 +4,10 @@
 
 | Component | Role |
 |-----------|------|
-| **Zarf** | Packages the application — bundles images, manifests, and dependencies into a self-contained tarball for air-gapped deployment |
-| **UDS** | Wraps the Zarf package with security declarations, network policies, and compliance metadata |
-| **Pepr** | Enforces the declared security posture in real time inside the cluster |
-| **Lula** | Validates that NIST 800-53 controls are actually met |
+| **Zarf** | A free, open-source CLI tool that packages applications and their dependencies (images, Helm charts, manifests) into a single compressed file that can be deployed into disconnected/air-gapped environments with zero internet access. Also includes a builtin registry, Git server, and K9s dashboard. |
+| **UDS** | A DevSecOps platform built on top of Zarf that adds security baselines, compliance automation, and standardized deployment patterns for DoD environments. |
+| **Pepr** | A Kubernetes controller framework that lets you write cluster automation and policy logic in TypeScript instead of complex YAML or shell scripts — used by UDS for enforcing security posture. |
+| **Lula** | Validates that NIST 800-53 security controls are actually implemented and met in a running environment. |
 
 ## What UDS Core Includes
 - **Istio** — service mesh for zero-trust networking between services
