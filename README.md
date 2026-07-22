@@ -91,3 +91,10 @@ uds zarf tools monitor
 ```
 
 This opens K9s — a terminal UI for watching pods come up across all namespaces.
+
+### Confirm UDS Core Slim Bundle is healthy
+```
+uds zarf tools kubectl get pods -A --no-headers | grep -Ev '(Running|Completed)'
+```
+
+No output means all pods are healthy.
