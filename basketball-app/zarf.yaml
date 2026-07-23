@@ -1,0 +1,29 @@
+kind: ZarfPackageConfig
+metadata:
+  name: basketball
+  version: 0.0.1
+
+components:
+  - name: basketball
+    required: true
+    charts:
+      - name: postgresql
+        version: 12.5.6
+        namespace: basketball
+        url: https://charts.bitnami.com/bitnami
+        releaseName: basketball-postgres
+        valuesFiles:
+          - postgres-values.yaml
+    manifests:
+      - name: basketball-uds-config
+        namespace: basketball
+        files:
+          - basketball-package.yaml
+          - k8s/backend-deployment.yaml
+          - k8s/backend-service.yaml
+          - k8s/frontend-deployment.yaml
+          - k8s/frontend-service.yaml
+    images:
+      - dejourford/basketball-backend:arm64
+      - dejourford/basketball-frontend:arm64
+      - docker.io/bitnami/postgresql:latest

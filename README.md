@@ -193,3 +193,190 @@ includes:
 username: doug
 password: unicorn123!@#UN
 ```
+
+## Deploying a full-stack basketball application
+
+### Create a project directory 
+```
+mkdir basketball-app && cd basketball-app
+```
+
+### Create a Zarf file to Package the application
+```
+# zarf.yaml
+kind: ZarfPackageConfig
+metadata:
+  name: basketball
+  version: 0.0.1
+
+components:
+  - name: basketball
+    required: true
+    charts:
+      - name: postgresql
+        version: 12.5.6
+        namespace: basketball
+        url: https://charts.bitnami.com/bitnami
+        releaseName: basketball-postgres
+        valuesFiles:
+          - postgres-values.yaml
+    manifests:
+      - name: basketball-uds-config
+        namespace: basketball
+        files:
+          - basketball-package.yaml
+          - k8s/backend-deployment.yaml
+          - k8s/backend-service.yaml
+          - k8s/frontend-deployment.yaml
+          - k8s/frontend-service.yaml
+    images:
+      - dejourford/basketball-backend:arm64
+      - dejourford/basketball-frontend:arm64
+      - docker.io/bitnami/postgresql:latest
+```
+
+### Create a basketball-package yaml file for the UDS Package CR
+```
+apiVersion: uds.dev/v1alpha1
+kind: Package
+metadata:
+  name: basketball
+  namespace: basketball
+spec:
+  network:
+    expose:
+      - service: basketball-frontend
+        selector:
+          app: frontend
+        gateway: tenant
+        host: basketball
+        port: 80
+    allow:
+      - direction: Ingress
+        selector:
+          app: backend
+        port: 3000
+```
+
+### Create a K8s directory and the necessary files
+
+```
+# backend-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: basketball
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: dejourford/basketball-backend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_HOST
+              value: "basketball-postgres-postgresql.basketball.svc.cluster.local"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "basketball_stats"
+            - name: DB_USER
+              value: "basketball_admin"
+            - name: DB_PASSWORD
+              value: "basketball123"
+            - name: CORS_ORIGIN
+              value: "*"
+            - name: BDL_API_KEY
+              value: "2f43812e-7fd6-4694-9cb2-13ada2d5223c"
+          resources:
+            requests:
+              cpu: "256m"
+              memory: "512Mi"
+            limits:
+              cpu: "512m"
+              memory: "1Gi"
+```
+
+```
+# backend-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: basketball-backend
+  namespace: basketball
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP
+```
+
+```
+# frontend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: basketball
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: dejourford/basketball-frontend:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "256m"
+              memory: "512Mi"
+            limits:
+              cpu: "512m"
+              memory: "1Gi"
+```
+
+```
+# frontend-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: basketball-frontend
+  namespace: basketball
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
+```
+
+### Create Zarf package
+```
+uds zarf package create --confirm
+```
+
+### Deploy it
+```
+uds zarf package deploy zarf-package-basketball-amd64-0.0.1.tar.zst --confirm
+```
