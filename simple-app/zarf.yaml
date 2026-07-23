@@ -14,4 +14,4 @@ components:
           - k8s/deployment.yaml
           - k8s/service.yaml
     images:
-      - nginx:alpine
+      - nginxinc/nginx-unprivileged:alpine
