@@ -1,0 +1,2 @@
+includes:
+  - common-setup: https://raw.githubusercontent.com/defenseunicorns/uds-common/main/tasks/setup.yaml
