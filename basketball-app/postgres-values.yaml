@@ -1,5 +1,0 @@
-auth:
-  database: basketball_stats
-  username: basketball_admin
-  password: basketball123
-  postgresPassword: basketball123
