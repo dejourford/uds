@@ -1,1 +1,24 @@
+# Kubernetes
 k8s
+
+# Zarf packages
+*.tar.zst
+zarf-sbom.tar
+
+# Zarf temp files
+zarf-package-*.tar.zst
+
+# Kubernetes configs
+*.kubeconfig
+kubeconfig
+
+# Secrets
+*.env
+.env
+postgres-values.yaml
+
+# Mac
+.DS_Store
+
+# k3d
+k3d-*.yaml
