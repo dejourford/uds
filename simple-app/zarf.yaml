@@ -13,5 +13,6 @@ components:
           - simple-app-package.yaml
           - k8s/deployment.yaml
           - k8s/service.yaml
+          - k8s/configmap.yaml
     images:
       - nginxinc/nginx-unprivileged:alpine
