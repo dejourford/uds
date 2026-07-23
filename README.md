@@ -98,3 +98,93 @@ uds zarf tools kubectl get pods -A --no-headers | grep -Ev '(Running|Completed)'
 ```
 
 No output means all pods are healthy.
+
+## Adding a package
+
+### Create a working directory
+```
+mkdir podinfo-package && cd podinfo-package
+```
+
+### Create UDS Package CR
+```
+apiVersion: uds.dev/v1alpha1
+kind: Package
+metadata:
+  name: podinfo
+  namespace: podinfo
+spec:
+  network:
+    expose:
+      - service: podinfo
+        selector:
+          app.kubernetes.io/name: podinfo
+        gateway: tenant
+        host: podinfo
+        port: 9898
+  sso:
+    - name: Podinfo SSO
+      clientId: uds-core-podinfo
+      redirectUris:
+        - "https://podinfo.uds.dev/login"
+      enableAuthserviceSelector:
+        app.kubernetes.io/name: podinfo
+      groups:
+        anyOf:
+          - "/UDS Core/Admin"
+  monitor:
+    - selector:
+        app.kubernetes.io/name: podinfo
+      targetPort: 9898
+      portName: http
+      description: "podinfo metrics"
+      kind: PodMonitor
+```
+
+### Create Zarf.yaml
+```
+kind: ZarfPackageConfig
+metadata:
+  name: podinfo
+  version: 0.0.1
+
+components:
+  - name: podinfo
+    required: true
+    charts:
+      - name: podinfo
+        version: 6.10.1
+        namespace: podinfo
+        url: https://github.com/stefanprodan/podinfo.git
+        gitPath: charts/podinfo
+    manifests:
+      - name: podinfo-uds-config
+        namespace: podinfo
+        files:
+          - podinfo-package.yaml
+    images:
+      - ghcr.io/stefanprodan/podinfo:6.10.1
+```
+
+### Build and deploy the package
+```
+uds zarf package create --confirm
+uds zarf package deploy zarf-package-podinfo-*.tar.zst --confirm
+```
+
+### Verify
+```
+uds zarf tools kubectl get package -n podinfo
+```
+
+The expected output is a pod named "podinfo" with the "Ready" status.
+
+## Access the app
+Navigate to 'https://podinfo.uds.dev' and you'll be redirected to keycloak. Only memners of /UDS Core/Admin can login.
+
+### Create a test user by setting up a tasks.yaml file that imports a helper from uds-common:
+```
+includes:
+  - common-setup: https://raw.githubusercontent.com/defenseunicorns/uds-common/main/tasks/setup.yaml
+```
+
