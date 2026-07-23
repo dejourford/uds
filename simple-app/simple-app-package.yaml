@@ -1,0 +1,14 @@
+apiVersion: uds.dev/v1alpha1
+kind: Package
+metadata:
+  name: simple-app
+  namespace: simple-app
+spec:
+  network:
+    expose:
+      - service: simple-app
+        selector:
+          app: simple-app
+        gateway: tenant
+        host: simple-app
+        port: 80
