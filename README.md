@@ -188,3 +188,8 @@ includes:
   - common-setup: https://raw.githubusercontent.com/defenseunicorns/uds-common/main/tasks/setup.yaml
 ```
 
+### Login to the app using the development creds
+```
+username: doug
+password: unicorn123!@#UN
+```
