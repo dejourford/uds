@@ -93,21 +93,23 @@ uds zarf tools monitor
 This opens K9s — a terminal UI for watching pods come up across all namespaces.
 
 ### Confirm UDS Core Slim Bundle is healthy
-```
+```bash
 uds zarf tools kubectl get pods -A --no-headers | grep -Ev '(Running|Completed)'
 ```
 
 No output means all pods are healthy.
 
+---
+
 ## Adding a custom package
 
 ### Create a working directory
-```
+```bash
 mkdir podinfo-package && cd podinfo-package
 ```
 
 ### Create UDS Package CR
-```
+```yaml
 apiVersion: uds.dev/v1alpha1
 kind: Package
 metadata:
@@ -142,7 +144,7 @@ spec:
 ```
 
 ### Create Zarf.yaml
-```
+```yaml
 kind: ZarfPackageConfig
 metadata:
   name: podinfo
@@ -167,23 +169,23 @@ components:
 ```
 
 ### Build and deploy the package
-```
+```bash
 uds zarf package create --confirm
 uds zarf package deploy zarf-package-podinfo-*.tar.zst --confirm
 ```
 
 ### Verify
-```
+```bash
 uds zarf tools kubectl get package -n podinfo
 ```
 
 The expected output is a pod named "podinfo" with the "Ready" status.
 
 ## Access the app
-Navigate to 'https://podinfo.uds.dev' and you'll be redirected to keycloak. Only memners of /UDS Core/Admin can login.
+Navigate to 'https://podinfo.uds.dev' and you'll be redirected to Keycloak. Only members of /UDS Core/Admin can login.
 
 ### Create a test user by setting up a tasks.yaml file that imports a helper from uds-common:
-```
+```yaml
 includes:
   - common-setup: https://raw.githubusercontent.com/defenseunicorns/uds-common/main/tasks/setup.yaml
 ```
@@ -194,189 +196,187 @@ username: doug
 password: unicorn123!@#UN
 ```
 
-## Deploying a full-stack basketball application
+---
 
-### Create a project directory 
+## Deploying a custom nginx app (simple-app)
+
+A from-scratch UDS package: raw Kubernetes manifests (no Helm chart), a ConfigMap-mounted custom HTML page, served by nginx behind the tenant gateway.
+
+### Project structure
 ```
-mkdir basketball-app && cd basketball-app
+simple-app/
+├── zarf.yaml
+├── simple-app-package.yaml
+└── k8s/
+    ├── configmap.yaml
+    ├── deployment.yaml
+    └── service.yaml
 ```
 
-### Create a Zarf file to Package the application
+### Key lesson: UDS runs containers as non-root
+The standard `nginx:alpine` image **fails under UDS** with:
+
 ```
-# zarf.yaml
+[emerg] mkdir() "/var/cache/nginx/client_temp" failed (13: Permission denied)
+```
+
+Pepr enforces a non-root security baseline, and stock nginx expects to start as root. The fix is `nginxinc/nginx-unprivileged:alpine`, which is built to run as a non-root user and listens on **8080** instead of 80. Every port reference (containerPort, Service targetPort) must point at 8080.
+
+### Create zarf.yaml
+```yaml
 kind: ZarfPackageConfig
 metadata:
-  name: basketball
+  name: simple-app
   version: 0.0.1
 
 components:
-  - name: basketball
+  - name: simple-app
     required: true
-    charts:
-      - name: postgresql
-        version: 12.5.6
-        namespace: basketball
-        url: https://charts.bitnami.com/bitnami
-        releaseName: basketball-postgres
-        valuesFiles:
-          - postgres-values.yaml
     manifests:
-      - name: basketball-uds-config
-        namespace: basketball
+      - name: simple-app-config
+        namespace: simple-app
         files:
-          - basketball-package.yaml
-          - k8s/backend-deployment.yaml
-          - k8s/backend-service.yaml
-          - k8s/frontend-deployment.yaml
-          - k8s/frontend-service.yaml
+          - simple-app-package.yaml
+          - k8s/configmap.yaml
+          - k8s/deployment.yaml
+          - k8s/service.yaml
     images:
-      - dejourford/basketball-backend:arm64
-      - dejourford/basketball-frontend:arm64
-      - docker.io/bitnami/postgresql:latest
+      - nginxinc/nginx-unprivileged:alpine
 ```
 
-### Create a basketball-package yaml file for the UDS Package CR
-```
+### Create the UDS Package CR
+```yaml
+# simple-app-package.yaml
 apiVersion: uds.dev/v1alpha1
 kind: Package
 metadata:
-  name: basketball
-  namespace: basketball
+  name: simple-app
+  namespace: simple-app
 spec:
   network:
     expose:
-      - service: basketball-frontend
+      - service: simple-app
         selector:
-          app: frontend
+          app: simple-app
         gateway: tenant
-        host: basketball
+        host: simple-app
         port: 80
-    allow:
-      - direction: Ingress
-        selector:
-          app: backend
-        port: 3000
 ```
 
-### Create a K8s directory and the necessary files
-
+### Create the ConfigMap with the custom page
+```yaml
+# k8s/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: simple-app-html
+  namespace: simple-app
+data:
+  index.html: |
+    <!-- custom HTML page goes here -->
 ```
-# backend-deployment.yaml
 
+### Create the Deployment
+```yaml
+# k8s/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
-  namespace: basketball
+  name: simple-app
+  namespace: simple-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: backend
+      app: simple-app
   template:
     metadata:
       labels:
-        app: backend
+        app: simple-app
     spec:
       containers:
-        - name: backend
-          image: dejourford/basketball-backend:latest
+        - name: simple-app
+          image: nginxinc/nginx-unprivileged:alpine
           ports:
-            - containerPort: 3000
-          env:
-            - name: DB_HOST
-              value: "basketball-postgres-postgresql.basketball.svc.cluster.local"
-            - name: DB_PORT
-              value: "5432"
-            - name: DB_NAME
-              value: "basketball_stats"
-            - name: DB_USER
-              value: "basketball_admin"
-            - name: DB_PASSWORD
-              value: "basketball123"
-            - name: CORS_ORIGIN
-              value: "*"
-            - name: BDL_API_KEY
-              value: "2f43812e-7fd6-4694-9cb2-13ada2d5223c"
+            - containerPort: 8080
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
           resources:
             requests:
-              cpu: "256m"
-              memory: "512Mi"
+              cpu: "50m"
+              memory: "32Mi"
             limits:
-              cpu: "512m"
-              memory: "1Gi"
+              cpu: "100m"
+              memory: "64Mi"
+      volumes:
+        - name: html
+          configMap:
+            name: simple-app-html
 ```
 
-```
-# backend-service.yaml
+> `volumes` sits at the same indentation level as `containers`, both under the pod `spec`.
 
+### Create the Service
+```yaml
+# k8s/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: basketball-backend
-  namespace: basketball
+  name: simple-app
+  namespace: simple-app
 spec:
   selector:
-    app: backend
+    app: simple-app
   ports:
     - port: 80
-      targetPort: 3000
+      targetPort: 8080
   type: ClusterIP
 ```
 
-```
-# frontend-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: frontend
-  namespace: basketball
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: frontend
-  template:
-    metadata:
-      labels:
-        app: frontend
-    spec:
-      containers:
-        - name: frontend
-          image: dejourford/basketball-frontend:latest
-          ports:
-            - containerPort: 80
-          resources:
-            requests:
-              cpu: "256m"
-              memory: "512Mi"
-            limits:
-              cpu: "512m"
-              memory: "1Gi"
-```
-
-```
-# frontend-service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: basketball-frontend
-  namespace: basketball
-spec:
-  selector:
-    app: frontend
-  ports:
-    - port: 80
-      targetPort: 80
-  type: ClusterIP
-```
-
-### Create Zarf package
-```
+### Build and deploy
+```bash
 uds zarf package create --confirm
+uds zarf package deploy zarf-package-simple-app-arm64-0.0.1.tar.zst --confirm
 ```
 
-### Deploy it
+### Redeploy cycle (after any change)
+```bash
+uds zarf package remove simple-app --confirm
+uds zarf package create --confirm
+uds zarf package deploy zarf-package-simple-app-arm64-0.0.1.tar.zst --confirm
 ```
-uds zarf package deploy zarf-package-basketball-amd64-0.0.1.tar.zst --confirm
+
+> Run these from inside the `simple-app/` directory — `create` looks for `zarf.yaml` in the current directory.
+
+### Verify at the pod level
+```bash
+kubectl get pods -n simple-app
+kubectl port-forward -n simple-app pod/$(kubectl get pod -n simple-app -o jsonpath='{.items[0].metadata.name}') 8888:8080
 ```
+
+In a second terminal:
+```bash
+curl http://127.0.0.1:8888
+```
+
+Should return the custom HTML page.
+
+### Verify through the Istio tenant gateway
+Plain HTTP through the gateway will **not** work — UDS forces HTTPS. Test over TLS instead:
+
+```bash
+kubectl port-forward -n istio-tenant-gateway svc/tenant-ingressgateway 9443:443
+```
+
+In a second terminal:
+```bash
+curl -k --resolve simple-app.uds.dev:9443:127.0.0.1 https://simple-app.uds.dev:9443
+```
+
+(`-k` skips cert verification since the local dev cert is self-signed for `*.uds.dev`.)
+
+### Debugging notes from this build
+- **Pod in `Error` status** → `kubectl logs -n simple-app <pod>`. The nginx permission-denied error immediately identified the root-vs-non-root issue.
+- **`ERR failed to create package: open zarf.yaml: no such file or directory`** → you're in the wrong directory; `cd` into the package folder first.
+- **Every manifest file must be listed** under the component's `manifests.files` in `zarf.yaml` — adding `k8s/configmap.yaml` to the deployment alone does nothing if Zarf never packages it.
