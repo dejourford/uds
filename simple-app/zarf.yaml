@@ -1,0 +1,17 @@
+kind: ZarfPackageConfig
+metadata:
+  name: simple-app
+  version: 0.0.1
+
+components:
+  - name: simple-app
+    required: true
+    manifests:
+      - name: simple-app-config
+        namespace: simple-app
+        files:
+          - simple-app-package.yaml
+          - k8s/deployment.yaml
+          - k8s/service.yaml
+    images:
+      - nginx:alpine
