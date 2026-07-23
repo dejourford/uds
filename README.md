@@ -99,7 +99,7 @@ uds zarf tools kubectl get pods -A --no-headers | grep -Ev '(Running|Completed)'
 
 No output means all pods are healthy.
 
-## Adding a package
+## Adding a custom package
 
 ### Create a working directory
 ```
