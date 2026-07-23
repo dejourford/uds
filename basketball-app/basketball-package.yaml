@@ -17,3 +17,9 @@ spec:
         selector:
           app: backend
         port: 3000
+        remoteGenerated: IntraNamespace
+      - direction: Ingress
+        selector:
+          app: postgres
+        port: 5432
+        remoteGenerated: IntraNamespace
